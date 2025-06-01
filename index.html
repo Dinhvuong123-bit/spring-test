@@ -141,7 +141,7 @@
         }
 
         // Gửi request login
-        fetch("http://15.235.163.38:8081/api/v1/auth/login", {
+        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -188,7 +188,7 @@
        *    - Gửi JOIN message để server biết có user mới
        */
       function connectWebSocket() {
-        const socketUrl = `http://15.235.163.38:8081/ws-chat?token=${jwtToken}`;
+        const socketUrl = `https://gp.rabbitclown.top/spring/ws-chat?token=${jwtToken}`;
         const socket = new SockJS(socketUrl);
         stompClient = Stomp.over(socket);
 
