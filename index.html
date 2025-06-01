@@ -64,6 +64,12 @@
       .error {
         color: red;
       }
+
+      .box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
     </style>
   </head>
 
@@ -71,26 +77,64 @@
     <h2 style="text-align: center">Chat Real-Time với Spring Boot WebSocket</h2>
 
     <!-- 1. Phần Đăng nhập -->
-    <div id="loginSection">
-      <h3>Đăng nhập</h3>
-      <div>
-        <label>Username:</label><br />
-        <input
-          type="text"
-          id="usernameField"
-          placeholder="Nhập username"
-        /><br /><br />
-        <label>Password:</label><br />
-        <input
-          type="password"
-          id="passwordField"
-          placeholder="Nhập password"
-        /><br /><br />
-        <button id="loginBtn">Login</button>
-        <span id="loginError" class="error"></span>
+    <div class="box" id="box">
+      <div id="loginSection">
+        <h3>Đăng nhập</h3>
+        <div>
+          <label>Username:</label><br />
+          <input
+            type="text"
+            id="usernameField"
+            placeholder="Nhập username"
+          /><br /><br />
+          <label>Password:</label><br />
+          <input
+            type="password"
+            id="passwordField"
+            placeholder="Nhập password"
+          /><br /><br />
+          <button id="loginBtn">Login</button>
+          <span id="loginError" class="error"></span>
+        </div>
+      </div>
+
+      
+
+      <div id="registerSection">
+        <hr width="100%" />
+        <h3>Đăng ký</h3>
+        <div>
+          <label>Username:</label><br />
+          <input
+            type="text"
+            id="registerUsernameField"
+            placeholder="Nhập username"
+          /><br /><br />
+          <label>Password:</label><br />
+          <input
+            type="password"
+            id="registerPasswordField"
+            placeholder="Nhập password"
+          /><br /><br />
+          <label>Repeat Password:</label>
+          <br />
+          <input
+            type="password"
+            id="registerRepeatPasswordField"
+            placeholder="Nhập lại password"
+          /><br /><br />
+          <label>Email:</label><br />
+          <input
+            type="email"
+            id="registerEmailField"
+            placeholder="Nhập email"
+          /><br /><br />
+
+          <button id="registerBtn">Register</button>
+          <span id="registerError" class="error"></span>
+        </div>
       </div>
     </div>
-
     <!-- 2. Phần Chat -->
     <div id="chatSection">
       <div style="margin-bottom: 10px">
@@ -123,7 +167,7 @@
       const chatWindow = document.getElementById("chatWindow");
       const messageInput = document.getElementById("messageInput");
       const sendBtn = document.getElementById("sendBtn");
-
+      const registerSection = document.getElementById("registerSection");
       /**
        * 1. Xử lý nút Login:
        *    - Gọi REST POST /api/auth/login
@@ -170,6 +214,7 @@
 
             // Ẩn form login, hiển thị chat
             loginSection.style.display = "none";
+            registerSection.style.display = "none";
             chatSection.style.display = "block";
 
             // Kết nối WebSocket ngay khi login thành công
@@ -181,7 +226,68 @@
       });
 
       /**
-       * 2. Hàm connectWebSocket:
+       * 2. Xử lý nút Register:
+       *    - Gọi REST POST /api/auth/register
+       *    - Nếu thành công, hiển thị thành công
+       *    - Nếu thất bại, hiển thị lỗi
+       */
+      const registerBtn = document.getElementById("registerBtn");
+      const registerUsernameField = document.getElementById(
+        "registerUsernameField"
+      );
+      const registerPasswordField = document.getElementById(
+        "registerPasswordField"
+      );
+      const registerRepeatPasswordField = document.getElementById(
+        "registerRepeatPasswordField"
+      );
+      const registerEmailField = document.getElementById("registerEmailField");
+
+      registerBtn.addEventListener("click", () => {
+        const username = registerUsernameField.value.trim();
+        const password = registerPasswordField.value.trim();
+        const repeatPassword = registerRepeatPasswordField.value.trim();
+        const email = registerEmailField.value.trim();
+        const registerError = document.getElementById("registerError");
+        registerError.textContent = "";
+
+        if (!username || !password || !email) {
+          registerError.textContent = "Vui lòng nhập đầy đủ thông tin đăng ký";
+          return;
+        }
+        if (password !== repeatPassword) {
+          registerError.textContent = "Mật khẩu không khớp";
+          return;
+        }
+
+        // Gửi request đăng ký
+        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: username,
+            password: password,
+            repeatPassword: repeatPassword,
+            email: email,
+          }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Đăng ký thất bại");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log("Register successful:", data);
+            alert("Đăng ký thành công! Bạn có thể đăng nhập ngay.");
+          })
+          .catch((err) => {
+            registerError.textContent = err.message;
+          });
+      });
+
+      /**
+       * 3. Hàm connectWebSocket:
        *    - Tạo SockJS client tới endpoint /ws-chat?token=<jwtToken>
        *    - Tạo STOMP client từ SockJS
        *    - Kết nối và subscribe /topic/public
@@ -223,7 +329,7 @@
       }
 
       /**
-       * 3. Xử lý khi nhấn nút Send:
+       * 4. Xử lý khi nhấn nút Send:
        *    - Tạo payload ChatMessage và gửi tới /app/chat.sendMessage
        */
       sendBtn.addEventListener("click", () => {
@@ -270,8 +376,6 @@
             p.style.color = "blue";
             p.style.alignSelf = "flex-end";
           }
-
-
         }
 
         chatWindow.appendChild(p);
@@ -323,6 +427,7 @@
         // Hiện lại login section
         chatSection.style.display = "none";
         loginSection.style.display = "block";
+        registerSection.style.display = "block";
         usernameField.value = "";
         passwordField.value = "";
         loginError.textContent = "";
