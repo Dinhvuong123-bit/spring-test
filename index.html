@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-Time Chat Frontend</title>
+    <!-- Chèn SockJS và StompJS từ CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #loginSection,
+      #chatSection {
+        max-width: 500px;
+        margin: 0 auto;
+      }
+      #loginSection {
+        display: block;
+      }
+      #chatSection {
+        display: none;
+      }
+      #chatWindow {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #ccc;
+        height: 400px;
+        overflow-y: auto;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #f9f9f9;
+      }
+      #chatWindow p {
+        margin: 5px 0;
+      }
+      #chatWindow .join {
+        color: green;
+        font-style: italic;
+      }
+      #chatWindow .leave {
+        color: red;
+        font-style: italic;
+      }
+      #chatWindow .message {
+        color: #333;
+      }
+      #messageInput {
+        width: 80%;
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      #sendBtn,
+      #logoutBtn {
+        padding: 8px 12px;
+        margin-left: 5px;
+      }
+      .hidden {
+        display: none;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h2 style="text-align: center">Chat Real-Time với Spring Boot WebSocket</h2>
+
+    <!-- 1. Phần Đăng nhập -->
+    <div id="loginSection">
+      <h3>Đăng nhập</h3>
+      <div>
+        <label>Username:</label><br />
+        <input
+          type="text"
+          id="usernameField"
+          placeholder="Nhập username"
+        /><br /><br />
+        <label>Password:</label><br />
+        <input
+          type="password"
+          id="passwordField"
+          placeholder="Nhập password"
+        /><br /><br />
+        <button id="loginBtn">Login</button>
+        <span id="loginError" class="error"></span>
+      </div>
+    </div>
+
+    <!-- 2. Phần Chat -->
+    <div id="chatSection">
+      <div style="margin-bottom: 10px">
+        <strong>Logged in as:</strong> <span id="displayNameSpan"></span>
+        <button id="logoutBtn" style="float: right">Logout</button>
+      </div>
+      <div id="chatWindow">
+        <!-- Tin nhắn sẽ được append vào đây -->
+      </div>
+      <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." />
+      <button id="sendBtn">Send</button>
+    </div>
+
+    <script>
+      // Biến toàn cục để lưu STOMP client và JWT token
+      let stompClient = null;
+      let jwtToken = null;
+      let currentUsername = null;
+      let currentDisplayName = null;
+
+      // Element references
+      const loginSection = document.getElementById("loginSection");
+      const chatSection = document.getElementById("chatSection");
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const usernameField = document.getElementById("usernameField");
+      const passwordField = document.getElementById("passwordField");
+      const loginError = document.getElementById("loginError");
+      const displayNameSpan = document.getElementById("displayNameSpan");
+      const chatWindow = document.getElementById("chatWindow");
+      const messageInput = document.getElementById("messageInput");
+      const sendBtn = document.getElementById("sendBtn");
+
+      /**
+       * 1. Xử lý nút Login:
+       *    - Gọi REST POST /api/auth/login
+       *    - Nếu thành công, lưu token, hiển thị chatSection
+       *    - Kết nối WebSocket
+       */
+      loginBtn.addEventListener("click", () => {
+        const username = usernameField.value.trim();
+        const password = passwordField.value.trim();
+        loginError.textContent = "";
+
+        if (!username || !password) {
+          loginError.textContent = "Vui lòng nhập đầy đủ username và password";
+          return;
+        }
+
+        // Gửi request login
+        fetch("http://15.235.163.38:8081/api/v1/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: username,
+            password: password,
+          }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(
+                "Đăng nhập thất bại (sai username hoặc password)"
+              );
+            }
+            return response.json();
+          })
+          .then((data) => {
+            // data: { token, type, id, username, displayName }
+            console.log("Login successful:", data.data.token);
+            console.log("Login successful:", data);
+            jwtToken = data.data.token;
+            currentUsername = username;
+            currentDisplayName = username;
+
+            // Hiển thị tên hiển thị
+            displayNameSpan.textContent = currentDisplayName;
+
+            // Ẩn form login, hiển thị chat
+            loginSection.style.display = "none";
+            chatSection.style.display = "block";
+
+            // Kết nối WebSocket ngay khi login thành công
+            connectWebSocket();
+          })
+          .catch((err) => {
+            loginError.textContent = err.message;
+          });
+      });
+
+      /**
+       * 2. Hàm connectWebSocket:
+       *    - Tạo SockJS client tới endpoint /ws-chat?token=<jwtToken>
+       *    - Tạo STOMP client từ SockJS
+       *    - Kết nối và subscribe /topic/public
+       *    - Gửi JOIN message để server biết có user mới
+       */
+      function connectWebSocket() {
+        const socketUrl = `http://15.235.163.38:8081/ws-chat?token=${jwtToken}`;
+        const socket = new SockJS(socketUrl);
+        stompClient = Stomp.over(socket);
+
+        // Khi kết nối thành công
+        stompClient.connect(
+          {},
+          (frame) => {
+            console.log("Connected: " + frame);
+
+            // Gửi JOIN đến /app/chat.addUser
+            const joinMsg = {
+              type: "JOIN",
+              content: "",
+              sender: currentUsername,
+              time: "",
+            };
+            stompClient.send("/app/chat.addUser", {}, JSON.stringify(joinMsg));
+
+            // Subscribe vào /topic/public
+            stompClient.subscribe("/topic/public", (message) => {
+              const msgObj = JSON.parse(message.body);
+              displayChatMessage(msgObj);
+            });
+          },
+          (error) => {
+            console.error("STOMP error:", error);
+            appendSystemMessage(
+              "Không thể kết nối WebSocket. Vui lòng thử lại."
+            );
+          }
+        );
+      }
+
+      /**
+       * 3. Xử lý khi nhấn nút Send:
+       *    - Tạo payload ChatMessage và gửi tới /app/chat.sendMessage
+       */
+      sendBtn.addEventListener("click", () => {
+        const content = messageInput.value.trim();
+        if (!content || !stompClient) return;
+
+        const chatMsg = {
+          type: "CHAT",
+          content: content,
+          sender: currentUsername,
+          time: "",
+        };
+        stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMsg));
+
+        messageInput.value = "";
+      });
+
+      // Gửi khi ấn Enter trong ô input
+      messageInput.addEventListener("keyup", (event) => {
+        if (event.key === "Enter") {
+          sendBtn.click();
+        }
+      });
+
+      /**
+       * 4. Hàm hiển thị tin nhắn lên chatWindow:
+       *    - Phân biệt MessageType: JOIN, LEAVE, CHAT
+       */
+      function displayChatMessage(message) {
+        const p = document.createElement("p");
+
+        if (message.type === "JOIN") {
+          p.classList.add("join");
+          p.textContent = `${message.sender} đã tham gia chat [${message.time}]`;
+        } else if (message.type === "LEAVE") {
+          p.classList.add("leave");
+          p.textContent = `${message.sender} đã rời chat [${message.time}]`;
+        } else {
+          // CHAT
+          p.classList.add("message");
+          p.textContent = `${message.sender} [${message.time}]: ${message.content}`;
+          if (message.sender === currentUsername) {
+            // Tin nhắn của người dùng hiện tại
+            p.style.color = "blue";
+            p.style.alignSelf = "flex-end";
+          }
+
+
+        }
+
+        chatWindow.appendChild(p);
+        // Luôn tự scroll xuống cuối
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      // Hiển thị thông báo hệ thống (error, thông báo kết nối)
+      function appendSystemMessage(text) {
+        const p = document.createElement("p");
+        p.style.color = "red";
+        p.textContent = text;
+        chatWindow.appendChild(p);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      /**
+       * 5. Logout:
+       *    - Gửi LEAVE message (tuỳ chọn)
+       *    - Disconnect STOMP client
+       *    - Xóa biến token
+       *    - Ẩn chatSection, hiện lại loginSection
+       */
+      logoutBtn.addEventListener("click", () => {
+        if (stompClient) {
+          // Gửi LEAVE message
+          const leaveMsg = {
+            type: "LEAVE",
+            content: "",
+            sender: currentUsername,
+            time: "",
+          };
+          stompClient.send(
+            "/app/chat.sendMessage",
+            {},
+            JSON.stringify(leaveMsg)
+          );
+          // Ngắt kết nối
+          stompClient.disconnect();
+          stompClient = null;
+        }
+        jwtToken = null;
+        currentUsername = null;
+        currentDisplayName = null;
+
+        // Xóa chatWindow
+        chatWindow.innerHTML = "";
+
+        // Hiện lại login section
+        chatSection.style.display = "none";
+        loginSection.style.display = "block";
+        usernameField.value = "";
+        passwordField.value = "";
+        loginError.textContent = "";
+      });
+    </script>
+  </body>
+</html>
