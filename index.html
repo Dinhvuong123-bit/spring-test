@@ -17,7 +17,9 @@
         margin: 0 auto;
       }
       #loginSection {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
       #chatSection {
         display: none;
@@ -67,6 +69,8 @@
         flex-direction: column;
         align-items: center;
       }
+      .oauth {
+      }
     </style>
   </head>
 
@@ -78,11 +82,27 @@
         <h3>Đăng nhập</h3>
         <div>
           <label>Username:</label><br />
-          <input type="text" id="usernameField" placeholder="Nhập username" /><br /><br />
+          <input
+            type="text"
+            id="usernameField"
+            placeholder="Nhập username"
+          /><br /><br />
           <label>Password:</label><br />
-          <input type="password" id="passwordField" placeholder="Nhập password" /><br /><br />
+          <input
+            type="password"
+            id="passwordField"
+            placeholder="Nhập password"
+          /><br /><br />
           <button id="loginBtn">Login</button>
           <span id="loginError" class="error"></span>
+        </div>
+        <h2 class="oauth">Hoặc</h2>
+        <div class="login-type">
+          <div class="google">
+            <button id="googleLoginBtn">
+              <img src="./img/google-logo-6278331.svg" alt="" width="50px" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -91,13 +111,29 @@
         <h3>Đăng ký</h3>
         <div>
           <label>Username:</label><br />
-          <input type="text" id="registerUsernameField" placeholder="Nhập username" /><br /><br />
+          <input
+            type="text"
+            id="registerUsernameField"
+            placeholder="Nhập username"
+          /><br /><br />
           <label>Password:</label><br />
-          <input type="password" id="registerPasswordField" placeholder="Nhập password" /><br /><br />
+          <input
+            type="password"
+            id="registerPasswordField"
+            placeholder="Nhập password"
+          /><br /><br />
           <label>Repeat Password:</label><br />
-          <input type="password" id="registerRepeatPasswordField" placeholder="Nhập lại password" /><br /><br />
+          <input
+            type="password"
+            id="registerRepeatPasswordField"
+            placeholder="Nhập lại password"
+          /><br /><br />
           <label>Email:</label><br />
-          <input type="email" id="registerEmailField" placeholder="Nhập email" /><br /><br />
+          <input
+            type="email"
+            id="registerEmailField"
+            placeholder="Nhập email"
+          /><br /><br />
 
           <button id="registerBtn">Register</button>
           <span id="registerError" class="error"></span>
@@ -116,12 +152,10 @@
     </div>
 
     <script>
-
       let stompClient = null;
       let jwtToken = null;
       let currentUsername = null;
       let currentDisplayName = null;
-
 
       const loginSection = document.getElementById("loginSection");
       const chatSection = document.getElementById("chatSection");
@@ -136,26 +170,22 @@
       const sendBtn = document.getElementById("sendBtn");
       const registerSection = document.getElementById("registerSection");
 
-
       window.addEventListener("load", () => {
         const savedToken = localStorage.getItem("chatJwtToken");
         const savedUsername = localStorage.getItem("chatUsername");
 
         if (savedToken && savedUsername) {
-         
           jwtToken = savedToken;
           currentUsername = savedUsername;
           currentDisplayName = savedUsername;
           displayAfterLogin();
           connectWebSocket();
         } else {
-         
-          loginSection.style.display = "block";
+          loginSection.style.display = "flex";
           registerSection.style.display = "block";
           chatSection.style.display = "none";
         }
       });
-
 
       function displayAfterLogin() {
         displayNameSpan.textContent = currentDisplayName;
@@ -175,29 +205,28 @@
           return;
         }
 
-        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/login", {
+        fetch("http://localhost:8081/api/v1/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
         })
           .then((response) => {
             if (!response.ok) {
-              throw new Error("Đăng nhập thất bại (sai username hoặc password)");
+              throw new Error(
+                "Đăng nhập thất bại (sai username hoặc password)"
+              );
             }
             return response.json();
           })
           .then((data) => {
-          
             const token = data.data.token;
             localStorage.setItem("chatJwtToken", token);
             localStorage.setItem("chatUsername", username);
 
-            
             jwtToken = token;
             currentUsername = username;
             currentDisplayName = username;
 
-        
             displayAfterLogin();
             connectWebSocket();
           })
@@ -208,9 +237,15 @@
 
       // 2. Xử lý register
       const registerBtn = document.getElementById("registerBtn");
-      const registerUsernameField = document.getElementById("registerUsernameField");
-      const registerPasswordField = document.getElementById("registerPasswordField");
-      const registerRepeatPasswordField = document.getElementById("registerRepeatPasswordField");
+      const registerUsernameField = document.getElementById(
+        "registerUsernameField"
+      );
+      const registerPasswordField = document.getElementById(
+        "registerPasswordField"
+      );
+      const registerRepeatPasswordField = document.getElementById(
+        "registerRepeatPasswordField"
+      );
       const registerEmailField = document.getElementById("registerEmailField");
 
       registerBtn.addEventListener("click", () => {
@@ -230,7 +265,7 @@
           return;
         }
 
-        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/register", {
+        fetch("http://localhost:8081/api/v1/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -248,7 +283,7 @@
           })
           .then((data) => {
             alert("Đăng ký thành công! Bạn có thể đăng nhập ngay.");
-   
+
             registerUsernameField.value = "";
             registerPasswordField.value = "";
             registerRepeatPasswordField.value = "";
@@ -261,7 +296,7 @@
 
       // 3. Kết nối WebSocket + STOMP
       function connectWebSocket() {
-        const socketUrl = `https://gp.rabbitclown.top/spring/ws-chat?token=${jwtToken}`;
+        const socketUrl = `http://localhost:8081/ws-chat?token=${jwtToken}`;
         const socket = new SockJS(socketUrl);
         stompClient = Stomp.over(socket);
 
@@ -285,7 +320,9 @@
           },
           (error) => {
             console.error("STOMP error:", error);
-            appendSystemMessage("Không thể kết nối WebSocket. Vui lòng thử lại.");
+            appendSystemMessage(
+              "Không thể kết nối WebSocket. Vui lòng thử lại."
+            );
           }
         );
       }
@@ -349,11 +386,15 @@
             sender: currentUsername,
             time: new Date().toLocaleTimeString(),
           };
-          stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(leaveMsg));
+          stompClient.send(
+            "/app/chat.sendMessage",
+            {},
+            JSON.stringify(leaveMsg)
+          );
           stompClient.disconnect();
           stompClient = null;
         }
-  
+
         localStorage.removeItem("chatJwtToken");
         localStorage.removeItem("chatUsername");
 
@@ -364,12 +405,70 @@
         chatWindow.innerHTML = "";
 
         chatSection.style.display = "none";
-        loginSection.style.display = "block";
+        loginSection.style.display = "flex";
         registerSection.style.display = "block";
         usernameField.value = "";
         passwordField.value = "";
         loginError.textContent = "";
       });
+
+      document
+        .getElementById("googleLoginBtn")
+        .addEventListener("click", async () => {
+          const width = 500,
+            height = 600;
+          const left = window.screenX + (window.innerWidth - width) / 2;
+          const top = window.screenY + (window.innerHeight - height) / 2;
+
+          const popup = window.open(
+            "http://localhost:8081/oauth2/authorization/google",
+            "GoogleLogin",
+            `width=${width},height=${height},left=${left},top=${top}`
+          );
+
+          if (!popup) {
+            alert("Popup bị chặn, hãy cho phép popup!");
+            return;
+          }
+
+          try {
+            const { token, username } = await new Promise((resolve, reject) => {
+              const handler = (e) => {
+                window.removeEventListener("message", handler);
+                resolve(e.data); // Nhận { token, username } từ popup
+              };
+              window.addEventListener("message", handler);
+
+              // Timeout nếu không nhận được dữ liệu trong 30 giây
+              setTimeout(() => {
+                window.removeEventListener("message", handler);
+                reject(
+                  new Error("Timeout: không nhận được thông tin từ popup")
+                );
+              }, 30000);
+            });
+
+            if (token && username) {
+              // Lưu thông tin và xử lý tiếp
+              localStorage.setItem("chatJwtToken", token);
+              localStorage.setItem("chatUsername", username);
+              console.log("Token:", token, "Username:", username);
+              setTimeout(() => {
+                location.replace("http://127.0.0.1:5500/index.html");
+              }, 1000);
+              
+
+              // Gọi các hàm khác như displayAfterLogin(), connectWebSocket() nếu cần
+            } else {
+              throw new Error("Thiếu token hoặc username");
+            }
+          } catch (err) {
+            console.error(err);
+            alert(err.message);
+          } finally {
+            popup.close();
+          }
+        });
     </script>
   </body>
 </html>
