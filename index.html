@@ -79,6 +79,12 @@
         max-width: 900px;
         margin: 0 auto;
       }
+
+      @media only screen and (max-width: 600px) {
+        #chatSection {
+          grid-template-columns: 1fr;
+        }
+      }
       #profilePanel {
         border: 1px solid #ccc;
         padding: 10px;
@@ -195,6 +201,8 @@
       let currentUsername = null;
       let currentDisplayName = null;
       let curData = null;
+      const BASE_URL = "https://gp.rabbitclown.top/spring";
+      // const BASE_URL = "http://localhost:8081";
 
       const loginSection = document.getElementById("loginSection");
       const registerSection = document.getElementById("registerSection");
@@ -263,7 +271,7 @@
           return;
         }
 
-        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/login", {
+        fetch(`${BASE_URL}/api/v1/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
@@ -311,7 +319,7 @@
           return;
         }
 
-        fetch("https://gp.rabbitclown.top/spring/api/v1/auth/register", {
+        fetch(`${BASE_URL}/api/v1/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password, repeatPassword, email }),
@@ -334,7 +342,7 @@
 
       // Kết nối WebSocket + STOMP
       function connectWebSocket() {
-        const socketUrl = `https://gp.rabbitclown.top/spring/ws-chat?token=${jwtToken}`;
+        const socketUrl = `${BASE_URL}/ws-chat?token=${jwtToken}`;
         const socket = new SockJS(socketUrl);
         stompClient = Stomp.over(socket);
 
@@ -406,7 +414,7 @@
           const pic = document.createElement("img");
           pic.src = msg.sender.picture;
           pic.style.borderRadius = "50%";
-          pic.style.width = "24px"; 
+          pic.style.width = "24px";
           pic.style.height = "24px";
           pic.style.padding = "6px";
           // pic.style.position = "219px"
@@ -463,7 +471,7 @@
 
       // Lấy profile và hiển thị
       async function fetchUserProfile() {
-        await fetch("https://gp.rabbitclown.top/spring/api/v1/user/profile", {
+        await fetch(`${BASE_URL}/api/v1/user/profile`, {
           headers: {
             "Content-Type": "application/json",
             Authorization: "Bearer " + jwtToken,
@@ -504,7 +512,7 @@
           const top = window.screenY + (window.innerHeight - height) / 2;
 
           const popup = window.open(
-            "https://gp.rabbitclown.top/spring/oauth2/authorization/google",
+            `${BASE_URL}/oauth2/authorization/google`,
             "GoogleLogin",
             `width=${width},height=${height},left=${left},top=${top}`
           );
@@ -537,7 +545,9 @@
               localStorage.setItem("chatUsername", username);
               console.log("Token:", token, "Username:", username);
               setTimeout(() => {
-                location.replace("https://dinhvuong123-bit.github.io/spring-test/");
+                location.replace(
+                  "https://dinhvuong123-bit.github.io/spring-test/"
+                );
               }, 1000);
 
               // Gọi các hàm khác như displayAfterLogin(), connectWebSocket() nếu cần
