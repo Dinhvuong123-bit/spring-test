@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Real-Time Chat Frontend</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+    />
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
@@ -57,6 +61,12 @@
       #logoutBtn {
         padding: 8px 12px;
         margin-left: 5px;
+      }
+
+      #logoutBtn {
+        background-color: white;
+        border-width: 0;
+        cursor: pointer;
       }
       .hidden {
         display: none;
@@ -173,7 +183,9 @@
       <div>
         <div style="margin-bottom: 10px">
           <strong>Logged in as:</strong> <span id="displayNameSpan"></span>
-          <button id="logoutBtn" style="float: right">Logout</button>
+          <button id="logoutBtn" style="float: right">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
         </div>
         <div id="chatWindow"></div>
         <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." />
@@ -182,7 +194,7 @@
       <!-- Cột profile -->
       <div id="profilePanel">
         <h4>Thông tin người dùng</h4>
-        <p>
+        <p style="display: flex; justify-content: center;">
           <img id="profileAvatar" src="" alt="" style="border-radius: 50%" />
         </p>
         <p><strong>Username:</strong> <span id="profileUsername">–</span></p>
@@ -191,6 +203,9 @@
         <!-- bạn thêm các trường khác tương tự nếu API trả thêm -->
         <hr />
         <button id="refreshProfileBtn">Cập nhật thông tin</button>
+        <hr />
+        <h4>Thông tin đoạn chat</h4>
+        <p><strong>Số người online:</strong> <span id="activeUser">–</span></p>
       </div>
     </div>
 
@@ -230,6 +245,8 @@
 
       const refreshProfileBtn = document.getElementById("refreshProfileBtn");
 
+      const activeUser = document.getElementById("activeUser");
+
       window.addEventListener("load", () => {
         const savedToken = localStorage.getItem("chatJwtToken");
         const savedUsername = localStorage.getItem("chatUsername");
@@ -251,6 +268,7 @@
         displayAfterLogin();
         connectWebSocket();
         fetchUserProfile();
+        setTimeout(updateActiveUser, 1000);
       }
 
       function displayAfterLogin() {
@@ -258,6 +276,28 @@
         loginSection.style.display = "none";
         registerSection.style.display = "none";
         chatSection.style.display = "grid"; // dùng grid theo layout đã chỉnh
+      }
+
+      function updateActiveUser() {
+        fetch(`${BASE_URL}/api/v1/user/active`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken, // nếu cần
+          },
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json(); // <— parse sang object
+          })
+          .then((body) => {
+            console.log(body.data.length); 
+            console.log(body.data); 
+            activeUser.textContent = body.data.length;
+          })
+          .catch((err) => {
+            console.error("Fetch error:", err);
+          });
       }
 
       // Xử lý Login
@@ -366,7 +406,7 @@
             appendSystemMessage(
               "Không thể kết nối WebSocket. Vui lòng thử lại."
             );
-
+            // updateActiveUser();
             // Dọn dẹp và chuyển về login
             if (stompClient) stompClient = null;
             localStorage.removeItem("chatJwtToken");
@@ -404,11 +444,13 @@
         const p = document.createElement("p");
         console.log(msg);
         if (msg.type === "JOIN") {
+          updateActiveUser();
           p.classList.add("join");
           p.textContent = `${msg.sender.username} đã tham gia chat [${msg.time}]`;
         } else if (msg.type === "LEAVE") {
+          updateActiveUser();
           p.classList.add("leave");
-          p.textContent = `${msg.sender} đã rời chat [${msg.time}]`;
+          p.textContent = `${msg.sender.username} đã rời chat [${msg.time}]`;
         } else {
           p.classList.add("message");
           const pic = document.createElement("img");
@@ -446,7 +488,7 @@
           const leaveMsg = {
             type: "LEAVE",
             content: "",
-            sender: currentUsername,
+            sender: { username: currentUsername },
             time: new Date().toLocaleTimeString(),
           };
           stompClient.send(
@@ -454,6 +496,7 @@
             {},
             JSON.stringify(leaveMsg)
           );
+          console.log(JSON.stringify(leaveMsg));
           stompClient.disconnect();
           stompClient = null;
         }
@@ -501,7 +544,10 @@
       }
 
       // Nút refresh profile
-      refreshProfileBtn.addEventListener("click", fetchUserProfile);
+      refreshProfileBtn.addEventListener("click", () => {
+        fetchUserProfile();
+        updateActiveUser();
+      });
 
       document
         .getElementById("googleLoginBtn")
@@ -545,9 +591,7 @@
               localStorage.setItem("chatUsername", username);
               console.log("Token:", token, "Username:", username);
               setTimeout(() => {
-                location.replace(
-                  "https://dinhvuong123-bit.github.io/spring-test/"
-                );
+                location.replace("http://127.0.0.1:5500/index.html");
               }, 1000);
 
               // Gọi các hàm khác như displayAfterLogin(), connectWebSocket() nếu cần
