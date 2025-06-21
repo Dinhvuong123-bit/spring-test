@@ -318,11 +318,11 @@
             return res.json();
           })
           .then((body) => {
-            for (let i = 0; i < body.data.length; ++i) {
+            for (let i = body.data.length - 1; i >= 0; --i) {
               // console.log(body.data[i]);
               displayChatMessage(body.data[i]);
             }
-            console.log(body.data.length);
+            console.log(body.data);
           })
           .catch((err) => {
             console.error("Fetch error:", err);
