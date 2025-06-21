@@ -507,7 +507,7 @@
         if (chatWindow.scrollTop === 0) {
           getOldMessage(page);
         }
-      });
+      }, 500);
 
       async function displayBackMessage(msg) {
         return new Promise((resolve) => {
