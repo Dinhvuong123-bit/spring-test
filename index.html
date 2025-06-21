@@ -347,7 +347,7 @@
           .then((body) => {
             const prevScrollTop = chatWindow.scrollTop;
             const prevScrollHeight = chatWindow.scrollHeight;
-            for (let i = 0; i < body.data.length; ++i) {
+            for (let i = body.data.length - 1 ; i >=0 ; --i) {
               displayBackMessage(body.data[i]);
             }
             const newScrollHeight = chatWindow.scrollHeight;
