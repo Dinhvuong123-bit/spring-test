@@ -194,7 +194,7 @@
       <!-- Cột profile -->
       <div id="profilePanel">
         <h4>Thông tin người dùng</h4>
-        <p style="display: flex; justify-content: center;">
+        <p style="display: flex; justify-content: center">
           <img id="profileAvatar" src="" alt="" style="border-radius: 50%" />
         </p>
         <p><strong>Username:</strong> <span id="profileUsername">–</span></p>
@@ -210,6 +210,7 @@
     </div>
 
     <script>
+      let page = 1;
       let avatar = null;
       let stompClient = null;
       let jwtToken = null;
@@ -269,6 +270,7 @@
         connectWebSocket();
         fetchUserProfile();
         setTimeout(updateActiveUser, 1000);
+        getAllMessage();
       }
 
       function displayAfterLogin() {
@@ -291,13 +293,72 @@
             return res.json(); // <— parse sang object
           })
           .then((body) => {
-            console.log(body.data.length); 
-            console.log(body.data); 
+            console.log(body.data.length);
+            console.log(body.data);
             activeUser.textContent = body.data.length;
           })
           .catch((err) => {
             console.error("Fetch error:", err);
           });
+      }
+
+      function getAllMessage() {
+        fetch(
+          `${BASE_URL}/api/v1/message/getAll?page=0&size=10&sort=timestamp,ASC`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + jwtToken,
+            },
+          }
+        )
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then((body) => {
+            for (let i = 0; i < body.data.length; ++i) {
+              // console.log(body.data[i]);
+              displayChatMessage(body.data[i]);
+            }
+            console.log(body.data.length);
+          })
+          .catch((err) => {
+            console.error("Fetch error:", err);
+          });
+      }
+
+      function getOldMessage(pag) {
+        fetch(
+          `${BASE_URL}/api/v1/message/getAll?page=${page}&size=10&sort=timestamp,ASC`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + jwtToken,
+            },
+          }
+        )
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then((body) => {
+            const prevScrollTop = chatWindow.scrollTop;
+            const prevScrollHeight = chatWindow.scrollHeight;
+            for (let i = 0; i < body.data.length; ++i) {
+              displayBackMessage(body.data[i]);
+            }
+            const newScrollHeight = chatWindow.scrollHeight;
+            chatWindow.scrollTop =
+              prevScrollTop + (newScrollHeight - prevScrollHeight);
+            console.log(body.data.length);
+          })
+          .catch((err) => {
+            console.error("Fetch error:", err);
+          });
+        page++;
       }
 
       // Xử lý Login
@@ -399,6 +460,7 @@
             stompClient.send("/app/chat.addUser", {}, JSON.stringify(joinMsg));
             stompClient.subscribe("/topic/public", (msg) => {
               displayChatMessage(JSON.parse(msg.body));
+              console.log(msg.body);
             });
           },
           (error) => {
@@ -440,6 +502,64 @@
         if (e.key === "Enter") sendBtn.click();
       });
 
+      chatWindow.addEventListener("scroll", function () {
+        if (chatWindow.scrollTop === 0) {
+          getOldMessage(page);
+        }
+      });
+
+      function displayBackMessage(msg) {
+        const p = document.createElement("p");
+        console.log(msg);
+        if (msg.type === "JOIN") {
+          updateActiveUser();
+          p.classList.add("join");
+          p.textContent = `${msg.sender.username} đã tham gia chat [${msg.time}]`;
+        } else if (msg.type === "LEAVE") {
+          updateActiveUser();
+          p.classList.add("leave");
+          p.textContent = `${msg.sender.username} đã rời chat [${msg.time}]`;
+        } else {
+          // if (msg.content != "") {
+          p.classList.add("message");
+          const pic = document.createElement("img");
+          // pic.textContent = '<i class="fa-solid fa-user"></i>'
+          pic.src = msg.sender.picture;
+          if (msg.sender.picture == null) {
+            pic.src = "./img/user.png";
+          }
+          pic.alt = msg.sender.username;
+          pic.title = msg.sender.username;
+          pic.style.borderRadius = "50%";
+          pic.style.width = "24px";
+          pic.style.height = "24px";
+          pic.style.padding = "6px";
+          // pic.style.position = "219px"
+          if (msg.time === undefined) {
+            let time_only = "";
+            if (msg.timestamp.includes("T")) {
+              let afterT = msg.timestamp.split("T")[1]; // "16:14:35.736429Z"
+              time_only = afterT.split(".")[0]; // "16:14:35"
+            }
+            console.log(time_only);
+            p.textContent = `[${time_only}]: ${msg.content}`;
+          } else {
+            p.textContent = `[${msg.time}]: ${msg.content}`;
+          }
+          p.appendChild(pic);
+          p.style.display = "flex";
+          p.style.alignItems = "center";
+
+          if (msg.sender.username === currentUsername) {
+            p.style.color = "blue";
+            p.style.alignSelf = "flex-end";
+          }
+          // }
+        }
+
+        chatWindow.insertBefore(p, chatWindow.firstChild);
+      }
+
       function displayChatMessage(msg) {
         const p = document.createElement("p");
         console.log(msg);
@@ -452,15 +572,32 @@
           p.classList.add("leave");
           p.textContent = `${msg.sender.username} đã rời chat [${msg.time}]`;
         } else {
+          // if (msg.content != "") {
           p.classList.add("message");
           const pic = document.createElement("img");
+          // pic.textContent = '<i class="fa-solid fa-user"></i>'
           pic.src = msg.sender.picture;
+          if (msg.sender.picture == null) {
+            pic.src = "./img/user.png";
+          }
+          pic.alt = msg.sender.username;
+          pic.title = msg.sender.username;
           pic.style.borderRadius = "50%";
           pic.style.width = "24px";
           pic.style.height = "24px";
           pic.style.padding = "6px";
           // pic.style.position = "219px"
-          p.textContent = `[${msg.time}]: ${msg.content}`;
+          if (msg.time === undefined) {
+            let time_only = "";
+            if (msg.timestamp.includes("T")) {
+              let afterT = msg.timestamp.split("T")[1]; // "16:14:35.736429Z"
+              time_only = afterT.split(".")[0]; // "16:14:35"
+            }
+            console.log(time_only);
+            p.textContent = `[${time_only}]: ${msg.content}`;
+          } else {
+            p.textContent = `[${msg.time}]: ${msg.content}`;
+          }
           p.appendChild(pic);
           p.style.display = "flex";
           p.style.alignItems = "center";
@@ -469,6 +606,7 @@
             p.style.color = "blue";
             p.style.alignSelf = "flex-end";
           }
+          // }
         }
         chatWindow.appendChild(p);
         chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -591,7 +729,10 @@
               localStorage.setItem("chatUsername", username);
               console.log("Token:", token, "Username:", username);
               setTimeout(() => {
-                location.replace("https://dinhvuong123-bit.github.io/spring-test/");
+                // location.replace("http://127.0.0.1:5500/index.html");
+                location.replace(
+                  "https://dinhvuong123-bit.github.io/spring-test/"
+                );
               }, 1000);
 
               // Gọi các hàm khác như displayAfterLogin(), connectWebSocket() nếu cần
