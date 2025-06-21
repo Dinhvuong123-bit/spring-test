@@ -449,7 +449,7 @@
         stompClient = Stomp.over(socket);
 
         stompClient.connect(
-          {},
+          { Authorization: `Bearer ${jwtToken}` },
           (frame) => {
             console.log("STOMP Connected:", frame);
             const joinMsg = {
