@@ -331,7 +331,7 @@
 
       function getOldMessage(pag) {
         fetch(
-          `${BASE_URL}/api/v1/message/getAll?page=${page}&size=10&sort=timestamp,ASC`,
+          `${BASE_URL}/api/v1/message/getAll?page=${page}&size=10&sort=timestamp,DESC`,
           {
             method: "GET",
             headers: {
@@ -347,7 +347,8 @@
           .then((body) => {
             const prevScrollTop = chatWindow.scrollTop;
             const prevScrollHeight = chatWindow.scrollHeight;
-            for (let i = body.data.length - 1 ; i >=0 ; --i) {
+            // for (let i = body.data.length - 1 ; i >=0 ; --i) {
+            for (let i = 0; i < body.data.length ; ++i) {
               displayBackMessage(body.data[i]);
             }
             const newScrollHeight = chatWindow.scrollHeight;
@@ -459,7 +460,7 @@
             };
             stompClient.send("/app/chat.addUser", {}, JSON.stringify(joinMsg));
             stompClient.subscribe("/topic/public", (msg) => {
-              displayChatMessage(JSON.parse(msg.body));
+            displayChatMessage(JSON.parse(msg.body));
               console.log(msg.body);
             });
           },
@@ -508,7 +509,7 @@
         }
       });
 
-      function displayBackMessage(msg) {
+      async function displayBackMessage(msg) {
         const p = document.createElement("p");
         console.log(msg);
         if (msg.type === "JOIN") {
@@ -558,9 +559,10 @@
         }
 
         chatWindow.insertBefore(p, chatWindow.firstChild);
+        setTimeout(resolve, 0);
       }
 
-      function displayChatMessage(msg) {
+      async function displayChatMessage(msg) {
         const p = document.createElement("p");
         console.log(msg);
         if (msg.type === "JOIN") {
@@ -610,6 +612,7 @@
         }
         chatWindow.appendChild(p);
         chatWindow.scrollTop = chatWindow.scrollHeight;
+        setTimeout(resolve, 0);
       }
 
       function appendSystemMessage(text) {
